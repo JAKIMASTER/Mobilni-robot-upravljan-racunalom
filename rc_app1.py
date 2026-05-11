@@ -53,7 +53,7 @@ class RCApp(QMainWindow):
 
         self.sending_enabled = True
         self.steer = 0.0
-        self.throttle = 0.0    # now in range -1..1 (reverse .. forward)
+        self.throttle = 0.0 
         self.yaw = 0.0
         self.pitch = 0.0
 
@@ -70,7 +70,6 @@ class RCApp(QMainWindow):
         self.last_pitch = 0.0
         self.last_time = time.time()
 
-        # joystick axis indices (adjust if your controller is different)
         self.default_L2_axis = 4
         self.default_R2_axis = 5
 
@@ -482,23 +481,19 @@ class RCApp(QMainWindow):
             r2 = 0
             l2 = 0
 
-        # throttle deadzones
         if r2 < 0.05:
             r2 = 0.0
         if l2 < 0.05:
             l2 = 0.0
 
-        # if both triggers pressed treat as neutral for safety
         if r2 > 0 and l2 > 0:
             raw_throttle = 0.0
         else:
-            raw_throttle = r2 - l2  # forward (+) or reverse (-)
+            raw_throttle = r2 - l2
 
-        # apply throttle limit (max %)
         throttle_limit = self.sl_throttle_limit.value() / 100.0
         raw_throttle *= throttle_limit
 
-        # steering deadzone and shaping
         deadzone = self.deadzone_slider.value() / 100.0
         if abs(raw_steer) < deadzone:
             raw_steer = 0.0
@@ -512,31 +507,25 @@ class RCApp(QMainWindow):
         self.last_steer = self.steer
         self.last_throttle = self.throttle
 
-        # smoothing / response
         self.steer += (raw_steer - self.steer) * (self.sl_steer.value() / 1000.0)
 
-        # throttle: if raw_throttle is exactly zero, snap to 0 immediately
         if abs(raw_throttle) < 1e-6:
             self.throttle = 0.0
         else:
             self.throttle += (raw_throttle - self.throttle) * (self.sl_throttle.value() / 1000.0)
 
-        # clamp throttle strictly into [-1,1] for safety
         if self.throttle > 1.0:
             self.throttle = 1.0
         if self.throttle < -1.0:
             self.throttle = -1.0
 
-        # update L2 display token for backward compatibility (channel 4)
         l2_val = l2
 
-        # show reverse if negative throttle (or L2 pressed)
         if self.throttle < -0.001 or l2 > 0.5:
             self.lbl_reverse.setText("REVERSE")
         else:
             self.lbl_reverse.setText("")
 
-        # HEAD TRACKING input (unchanged)
         if self.head_source == "arduino":
             if self.serial_in:
                 try:
@@ -603,15 +592,13 @@ class RCApp(QMainWindow):
         if adj_yaw < -180: adj_yaw += 360
         adj_pitch = max(-45, min(45, adj_pitch))
 
-        # BUILD CHANNELS
         ch = [1024] * 16
         ch[0] = map_range(self.steer, -1, 1, 172, 1811)
-        ch[1] = map_range(self.throttle, -1, 1, 172, 1811)  # reverse..forward
-        ch[2] = map_range(adj_yaw, -180, 180, 172, 1811)    # yaw user command
-        ch[3] = map_range(adj_pitch, -45, 45, 172, 1811)    # pitch user command
+        ch[1] = map_range(self.throttle, -1, 1, 172, 1811)  
+        ch[2] = map_range(adj_yaw, -180, 180, 172, 1811)  
+        ch[3] = map_range(adj_pitch, -45, 45, 172, 1811)  
         ch[4] = map_range(l2_val, 0, 1, 172, 1811)
 
-        # SEND
         if self.serial_out and self.sending_enabled:
             try:
                 self.serial_out.write(pack_crsf_channels(ch))
@@ -623,12 +610,10 @@ class RCApp(QMainWindow):
                 self.serial_out = None
                 self.update_status_label()
 
-        # update visuals
-        # color: reverse -> greenish if stopped/backwards small, orange/red if forward strong
         if self.throttle < -0.3:
-            col = QColor("#00aaff")  # blue-ish for big reverse
+            col = QColor("#00aaff") 
         elif self.throttle < 0.01:
-            col = QColor("#00ff88")  # neutral / idle
+            col = QColor("#00ff88") 
         elif self.throttle < 0.7:
             col = QColor("#ffaa00")
         else:
@@ -658,7 +643,6 @@ class RCApp(QMainWindow):
         self.path_item.setPath(p)
         self.path_item.setPen(QPen(curve_col, 6, Qt.SolidLine, Qt.RoundCap))
 
-        # marker: map throttle -1..1 -> -80..80 vertical range
         marker_x = self.steer * 100
         marker_y = self.throttle * 80
         self.marker.setRect(marker_x - 18, 120 - marker_y, 36, 18)
@@ -699,7 +683,6 @@ class RCApp(QMainWindow):
         adj_pitch = max(-45, min(45, adj_pitch))
 
         try:
-            # telemetry: steer mapped -1..1 -> 1000..2000, throttle now -1..1 -> 1000..2000
             s_val = int(map_range(self.steer, -1, 1, 1000, 2000))
             t_val = int(map_range(self.throttle, -1, 1, 1000, 2000))
             self.lbl_telemetry.setText(
@@ -708,7 +691,6 @@ class RCApp(QMainWindow):
         except Exception:
             self.lbl_telemetry.setText(f"S:{self.steer:.3f} T:{self.throttle:.3f}\nYaw:{adj_yaw:.1f} Pitch:{adj_pitch:.1f}")
 
-        # update concise status label
         self.update_status_label()
         self.update_joystick_label()
 
