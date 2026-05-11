@@ -17,7 +17,6 @@ unsigned long lastPacketTime = 0;
 unsigned long lastWriteTime = 0;
 const unsigned long WRITE_INTERVAL_MS = 20;
 
-// Kanali (Target PWM us)
 int targetSteer = 1500;
 int targetThrottle = 1500;
 int targetYaw = 1500;
@@ -25,7 +24,6 @@ int targetPitch = 1500;
 
 bool gotFirstFrame = false;
 
-// Mapiranje CRSF (172-1811) u PWM (1000-2000)
 int mapCRSFtoPWM(int v) {
     return constrain(map(v, 172, 1811, 1000, 2000), 1000, 2000);
 }
@@ -52,8 +50,7 @@ void setup() {
     escMotor.attach(10);
     yawServo.attach(11);
     pitchServo.attach(2);
-    
-    // Inicijalna pozicija
+
     steerServo.writeMicroseconds(1500);
     escMotor.writeMicroseconds(1500);
     yawServo.writeMicroseconds(1500);
@@ -68,7 +65,6 @@ void loop() {
 
         if (buffer[0] == CRSF_ADDRESS && buf_pos >= 2) {
             uint8_t length = buffer[1];
-            // ISPRAVAK: Ukupna duljina paketa je length + 2 (Header + Len byte)
             uint8_t total_packet_size = length + 2; 
 
             if (buf_pos >= total_packet_size) {
@@ -77,27 +73,23 @@ void loop() {
                     lastPacketTime = millis();
                     gotFirstFrame = true;
 
-                    // USKLAĐIVANJE S TVOJIM PYTHON KODOM:
-                    // ch[0]=Steer, ch[1]=Throttle, ch[2]=Yaw, ch[3]=Pitch
                     targetSteer    = mapCRSFtoPWM(channels[0]);
                     targetThrottle = mapCRSFtoPWM(channels[1]);
                     targetYaw      = mapCRSFtoPWM(channels[2]); 
                     targetPitch    = mapCRSFtoPWM(channels[3]);
                 }
-                
-                // Očisti obrađeni paket iz buffera
+
                 memmove(buffer, buffer + total_packet_size, buf_pos - total_packet_size);
                 buf_pos -= total_packet_size;
             }
         } else if (buf_pos > 0 && buffer[0] != CRSF_ADDRESS) {
-            // Traži početak paketa
             buf_pos = 0;
         }
     }
 
     unsigned long now = millis();
     if (now - lastPacketTime > 500) {
-        targetThrottle = 1500; // Failsafe
+        targetThrottle = 1500;
         gotFirstFrame = false;
     }
 
